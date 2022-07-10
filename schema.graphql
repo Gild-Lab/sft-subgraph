@@ -19,27 +19,90 @@ type OffchainAssetVault @entity {
     "Address of deployer"
     deployer: Bytes! #address of the deployer - get from event OffchainAssetVaultConstruction.sender
     "Address of the OffchainAssetVaultFactory that is this contract's parent."
-    factory: OffchainAssetVaultFactory! #the factory that deployed this contract
+    factory: OffchainAssetVaultFactory! # The factory that deployed this contract
     "The initial admin set when this contract was deployed"
     admin: Bytes! # OffchainAssetVaultConstruction.sender
     "The name of the ERC20 token for this OffchainAssetVault"
     name: String! # OffchainAssetVaultConstruction.receiptVaultConfig.name
     "The symbol for the ERC20 token for this OffchainAssetVault"
     symbol: String! # OffchainAssetVaultConstruction.receiptVaultConfig.symbol
-    "The uri for the ERC1155 token for this OffchainAssetVault"
+    "This OffchainAssetVault as an account, including its associated events"
+	asAccount: Account!
+    "The total number of shares for this OffchainAssetVault"
+	totalShares: BigInt! # OffchainAssetVault.totalSupply() - update with every mint/burn
+    "The uri for the ERC1155 tokens for this OffchainAssetVault"
     uri: String! # OffchainAssetVaultConstruction.receiptVaultConfig.uri
+
+    "Share holders for this OffchainAssetVault"
+    shareHolders: [Account] # All Accounts that have a ShareBalance for this OffchainAssetVault
+    "Share balances for this OffchainAssetVault"
+    shareBalances: [ShareBalance!]! @derivedFrom(field: "offchainAssetVault")
+    "Share approvals for this OffchainAssetVault"
+	shareApprovals: [ShareApproval!]! @derivedFrom(field: "offchainAssetVault")
+    "Share transfers for this OffchainAssetVault"
+	shareTransfers: [ShareTransfer!]! @derivedFrom(field: "offchainAssetVault")
+
+    "Receipt holders for this OffchainAssetVault"
+    receiptHolders: [Account] # All Accounts that have a ReceiptBalance for an ID for this OffchainAssetVault
+    "Receipts for this OffchainAssetVault"
+    receipts: [Receipt!]! @derivedFrom(field: "offchainAssetVault")
+    "Receipt balances for this OffchainAssetVault"
+	receiptBalances: [ReceiptBalance!]! @derivedFrom(field: "offchainAssetVault")
+    "Receipt operators for this OffchainAssetVault"
+	receiptOperators: [ReceiptOperator!]! @derivedFrom(field: "offchainAssetVault")
+    "Receipt transfers for this OffchainAssetVault"
+	receiptTransfers: [ReceiptTransfer!]! @derivedFrom(field: "offchainAssetVault")
+
     "The timestamp that this OffchainAssetVault is certified until"
     certifiedUntil: BigInt! # Updated with each new Certify event
     "Certifications for this OffchainAssetVault"
-    certifications: [Certification] # All Cerification entities for this OffchainAssetVault
-    "Receipt holders for this OffchainAssetVault"
-    receiptHolders: [ReceiptHolder]
-    "Share holders for this OffchainAssetVault"
-    shareHolders: [ShareHolder]
+    certifications: [Certify] @derivedFrom(field: "offchainAssetVault")
+
     "Share confiscations"
-    shareConfiscations: [ShareConfiscation] # All ShareConfiscation entities for this OffchainAssetVault
+    shareConfiscations: [ConfiscateShares] @derivedFrom(field: "offchainAssetVault")
     "Receipt confiscations"
-    receiptConfiscations: [ReceiptConfiscation] # All ReceiptConfiscation entities for this OffchainAssetVault
+    receiptConfiscations: [ConfiscateReceipt] @derivedFrom(field: "offchainAssetVault")
+
+    "Role holders"
+    roleHolders: [RoleHolder] @derivedFrom(field: "offchainAssetVault")
+    "Roles"
+    roles: [Role] @derivedFrom(field: "offchainAssetVault")
+    "Role revoke events"
+    roleRevokes: [RoleRevoked] @derivedFrom(field: "offchainAssetVault")
+    "Role granted events"
+    roleGranteds: [RoleGranted] @derivedFrom(field: "offchainAssetVault")
+}
+
+type Account @entity {
+	id: ID!
+	asOffchainAssetVault: OffchainAssetVault
+
+	ShareBalances: [SharesBalance!]! @derivedFrom(field: "account")
+	ShareApprovalsOwner: [SharesApproval!]! @derivedFrom(field: "owner")
+	ShareApprovalsSpender: [SharesApproval!]! @derivedFrom(field: "spender")
+	ShareTransferFromEvent: [SharesTransfer!]! @derivedFrom(field: "from")
+	ShareTransferToEvent: [SharesTransfer!]! @derivedFrom(field: "to")
+ 
+	ReceiptBalances: [ReceiptBalance!]! @derivedFrom(field: "account")
+	ReceiptOperatorOwner: [ReceiptOperator!]! @derivedFrom(field: "owner")
+	ReceiptOperatorOperator: [ReceiptOperator!]! @derivedFrom(field: "operator")
+	ReceiptTransferFromEvent: [ReceiptTransfer!]! @derivedFrom(field: "from")
+	ReceiptTransferToEvent: [ReceiptTransfer!]! @derivedFrom(field: "to")
+	ReceiptTransferOperatorEvent: [ReceiptTransfer!]! @derivedFrom(field: "operator")
+
+    ConficateSharesConfiscator: [ConfiscateShares!]! @derivedFrom(field: "confiscator")
+    ConficateSharesConfiscatee: [ConfiscateShares!]! @derivedFrom(field: "confiscatee")
+
+    ConficateReceiptConfiscator: [ConfiscateShares!]! @derivedFrom(field: "confiscator")
+    ConficateReceiptConfiscatee: [ConfiscateShares!]! @derivedFrom(field: "confiscatee")
+
+    Certifies: [Certify!]! @derivedFrom(field: "certifier")
+
+    RoleHolders: [RoleHolder!]! @derivedFrom(field: "account")
+    RoleRevokes: [RoleRevoked] @derivedFrom(field: "account")
+    RoleGranteds: [RoleGranted] @derivedFrom(field: "account") 
+
+	events: [Event!]! @derivedFrom(field: "emitter")
 }
 
 # Created with every mint for a new 1155 id (TransferSingle event from the zero address)
@@ -58,49 +121,42 @@ type Receipt @entity {
     deposits: [Deposits!]
     "Withdraws for this receipt"
     withdraws: [Withdraw!]!
-    "Receipt information"
-    receiptInformation: [ReceiptInformation!]! # Link to all ReceiptInformation emitted for this OffchainAssetVault and this receiptId
     "Holders of this receipt"
-    receiptHolders: [ReceiptHolder!]! 
+    holders: [Account!]! # All Accounts that have a ReceiptBalance for this receiptId
+    "Balances for this receipt"
+	balances: [ReceiptBalance!]! @derivedFrom(field: "token")
+    "Transfers for this receipt"
+	transfers: [ReceiptTransfer!]! @derivedFrom(field: "token")
 }
 
-type ReceiptHolder @entity {
+# # Created with every TransferSingle event from the zero address
+# type Deposit @entity implements Event {
+#     id: ID!
+#     "Block number for the Deposit"
+#     block: BigInt! # the block of the mint event
+#     "Timestamp for Deposit event"
+#     timestamp: BigInt! # the timestamp of the TransferSingle event
+#     "The OffchainAssetVault that this deposit is for"
+#     offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted the mint event
+#     "The receipt this deposit is for"
+#     receipt: Receipt! # TransferSingle.id
+#     "The shares minted with this deposit"
+#     shares: BigInt! # TransferSingle.amount
+#     "The receiver of the ERC1155 receipts and the ERC20 shares"
+#     receiver: Account! # From TransferSingle.to
+#     "The sender of the transaction"
+#     sender: Account! # @TODO
+# }
 
-}
-
-type ShareHolder @entity {
-
-}
-
-# Created with every TransferSingle event from the zero address
-type Deposit @entity {
-    id: ID!
-    "Block number for the Deposit"
-    block: BigInt! # the block of the mint event
-    "Timestamp for Deposit event"
-    timestamp: BigInt! # the timestamp of the TransferSingle event
-    "The OffchainAssetVault that this deposit is for"
-    offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted the mint event
-    "The receipt this deposit is for"
-    receiptId: BigInt! # TransferSingle.id
-    "The shares minted with this deposit"
-    shares: BigInt! # TransferSingle.amount
-    "The receiver of the ERC1155 receipts and the ERC20 shares"
-    receiver: Bytes! # From TransferSingle.to
-    "The sender of the transaction"
-    sender: Bytes! # @TODO
-}
-
-# Created with every TransferSingle event to the zero address
-type Withdraw @entity {
-  id: ID!
-  assets: BigInt!
-  caller: Bytes!
-  owner: Bytes!
-  receiver: Bytes!
-  shares: BigInt!
-}
-
+# # Created with every TransferSingle event to the zero address
+# type Withdraw @entity implements Event {
+#   id: ID!
+#   assets: BigInt!
+#   caller: Bytes!
+#   owner: Bytes!
+#   receiver: Bytes!
+#   shares: BigInt!
+# }
 
 # Created with every new ReceiptInformation event
 type ReceiptInformation @entity {
@@ -113,17 +169,22 @@ type ReceiptInformation @entity {
     "The information"
     information: Bytes! # ReceiptInformation.data
     "The sender of this receipt information"
-    sender: Bytes! # ReceiptInformation.senderß
+    sender: Account! # ReceiptInformation.sender
 }
 
 # Get from event Certify
-type Certification @entity {
-    "Transaction hash in which Certify was emitted"
-    id: ID! #txhash of the Certify event
-    "The OffchainAssetVault that was certified"
+type Certify @entity implements Event {
+    id: ID!
+    "The transaction in which Certify was emitted"
+	transaction: Transaction!
+    "The emitter of the event"
+	emitter: Account!
+    "Timestamp for Certify event"
+    timestamp: BigInt! # the timestamp of the Certify event
+    "The OffchainAssetVault that this cerfication is for"
     offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted ths Certify event
-    "The address that submitted the certificatio.."
-    certifier: Bytes! # Certify.sender
+    "The address that submitted the certification."
+    certifier: Account! # Certify.sender
     "Until when the certification is valid."
     certifiedUntil: BigInt! # Certify.until
     "The data submitted with the certification"
@@ -131,39 +192,172 @@ type Certification @entity {
 }
 
 # Get from event ConfiscateShares
-type ShareConfiscation @entity {
-    "Transaction hash in which ConfiscateShares was emitted"
-    id: ID! #txhash of the ConfiscateShares event
-    "The OffchainAssetVault that shares were confiscated for"
-    offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted the event
-    "Block number for ConfiscateShares event"
-    block: BigInt! # the block of the ConfiscateShares event
+type ConfiscateShares @entity implements Event {
+    id: ID!
+    "The transaction in which ConfiscateShares was emitted"
+	transaction: Transaction!
+    "The emitter of the event"
+	emitter: Account!
     "Timestamp for ConfiscateShares event"
     timestamp: BigInt! # the timestamp of the ConfiscateShares event
+    "The OffchainAssetVault that shares were confiscated for"
+    offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted the event
     "The confiscator's address"
-    confiscator: Bytes! # ConfiscateShares.sender
+    confiscator: Account! # ConfiscateShares.sender
     "The confiscatee's address"
-    confiscatee: Bytes! # ConfiscateShares.confiscatee
+    confiscatee: Account! # ConfiscateShares.confiscatee
     "The number of shares confiscated"
     confiscated: BigInt! # ConfiscateShares.confiscated
 }
 
 # Get from event ConfiscateReceipt
-type ReceiptConfiscation @entity {
-    "Transaction hash in which ConfiscateReceipt was emitted"
-    id: ID! #txhash of the ConfiscateReceipt event
-    "The OffchainAssetVault that shares were confiscated for"
-    offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted the event
-    "Block number for ConfiscateReceipt event"
-    block: BigInt! # the block of the ConfiscateReceipt event
+type ConfiscateReceipt @entity implements Event {
+    id: ID!
+    "The transaction in which ConfiscateReceipt was emitted"
+	transaction: Transaction!
+    "The emitter of the event"
+	emitter: Account!
     "Timestamp for ConfiscateReceipt event"
     timestamp: BigInt! # the timestamp of the ConfiscateReceipt event
+    "The OffchainAssetVault that shares were confiscated for"
+    offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted the event
     "The confiscator's address"
-    confiscator: Bytes! # ConfiscateReceipt.sender
+    confiscator: Account! # ConfiscateReceipt.sender
     "The confiscatee's address"
-    confiscatee: Bytes! # ConfiscateReceipt.confiscatee
-    "The token id of the receipt confiscated"
-    tokenId: BigInt! # ConfiscateReceipt.id
+    confiscatee: Account! # ConfiscateReceipt.confiscatee
+    "The receipt confiscated"
+    receipt: Receipt! # Link to Receipt for {OffchainAssetVault address}-{Confiscate.id}
     "The number of receipts confiscated"
     confiscated: BigInt! # ConfiscateReceipt.confiscated
+}
+
+type SharesBalance @entity {
+	id: ID!
+	offchainAssetVault: OffchainAssetVault!
+	account: Account
+	value: BigDecimal!
+	valueExact: BigInt!
+	transferFromEvents: [SharesTransfer!]! @derivedFrom(field: "fromBalance")
+	transferToEvents: [SharesTransfer!]! @derivedFrom(field: "toBalance")
+    "The amount of shares that have been confiscated for this account."
+    confiscated: BigInt! # Update if there is a ConfiscateShares for this OffchainAssetVault and Account
+}
+
+type SharesApproval @entity implements Event @entity {
+	id: ID!
+    emitter: Account!
+	transaction: Transaction!
+	timestamp: BigInt!
+	offchainAssetVault: OffchainAssetVault!
+	owner: Account!
+	spender: Account!
+	value: BigDecimal!
+	valueExact: BigInt!
+}
+
+type SharesTransfer implements Event @entity {
+	id: ID!
+	emitter: Account!
+	transaction: Transaction!
+	timestamp: BigInt!
+	offchainAssetVault: OffchainAssetVault!
+	from: Account
+	fromBalance: SharesBalance
+	to: Account
+	toBalance: SharesBalance
+	value: BigDecimal!
+	valueExact: BigInt!
+}
+
+type ReceiptBalance @entity {
+	id: ID!
+	offchainAssetVault: OffchainAssetVault!
+	receipt: Receipt!
+	account: Account
+	value: BigDecimal!
+	valueExact: BigInt!
+	transferFromEvent: [ReceiptTransfer!]! @derivedFrom(field: "fromBalance")
+	transferToEvent: [ReceiptTransfer!]! @derivedFrom(field: "toBalance")
+    "The amount this receipt that has been confiscated, for this account"
+    confiscated: BigInt! # Update if there is a ConfiscateReceipts for this OffchainAssetVault, Receipt and Account
+}
+
+type ReceiptOperator @entity {
+	id: ID!
+	offchainAssetVault: OffchainAssetVault!
+	owner: Account!
+	operator: Account!
+	approved: Boolean!
+}
+
+type ReceiptTransfer implements Event @entity {
+	id: ID!
+	emitter: Account!
+	transaction: Transaction!
+	timestamp: BigInt!
+	offchainAssetVault: OffchainAssetVault!
+	token: Receipt!
+	operator: Account!
+	from: Account
+	fromBalance: ReceiptBalance
+	to: Account
+	toBalance: ReceiptBalance
+	value: BigDecimal!
+	valueExact: BigInt!
+}
+
+type RoleGranted implements Event @entity {
+    id: ID!
+	emitter: Account!
+	transaction: Transaction!
+	timestamp: BigInt!
+	offchainAssetVault: OffchainAssetVault!
+    role: Role!
+    roleHolder: RoleHolder!
+    account: Account!
+    sender: Account!
+}
+
+type RoleRevoked implements Event @entity {
+    id: ID!
+	emitter: Account!
+	transaction: Transaction!
+	timestamp: BigInt!
+	offchainAssetVault: OffchainAssetVault!
+    role: Role!
+    roleHolder: RoleHolder!
+    account: Account!
+    sender: Account!
+}
+
+type RoleHolder @entity {
+    id: ID!
+    offchainAssetVault: OffchainAssetVault!
+    role: Role!
+    account: Account!
+    hasRole: Boolean!
+    roleGrants: [RoleGranted!]! @derivedFrom(field: "roleHolder")
+    roleRevoked: [RoleHolder!]! @derivedFrom(field: "roleHolder")
+}
+
+type Role @entity {
+    id: ID!
+    offchainAssetVault: OffchainAssetVault!
+    roleHash: Bytes!
+    roleName: String! # match the hash to the roles in roles.sol
+    roleHolders: [RoleHolders!]! @derivedFrom(field: "account")
+}
+
+interface Event {
+	id: ID!
+	transaction: Transaction!
+	emitter: Account!
+	timestamp: BigInt!
+}
+
+type Transaction @entity {
+	id: ID!
+	timestamp: BigInt!
+	blockNumber: BigInt!
+	events: [Event!]! @derivedFrom(field: "transaction")
 }
