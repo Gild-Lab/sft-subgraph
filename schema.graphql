@@ -1,0 +1,169 @@
+type OffchainAssetVaultFactory @entity {
+    id: ID! #factory address
+    "Address of the OffchainAssetVault contract"
+    address: Bytes! #factory address
+    implementation: Bytes! #implementation address from Implementation event
+    "Stake addresses deployed by this factory"
+    children: [OffchainAssetVault!] #all the children that were deployed by this factory
+}
+
+type OffchainAssetVault @entity {
+    "The contract address"
+    id: ID! #OffchainAssetVault contract address
+    "Address of this OffchainAssetVault contract"
+    address: Bytes! #OffchainAssetVault contract address
+    "Block number of contract deployment"
+    deployBlock: BigInt! #the block the contract was deployed
+    "Timestamp of contract deployment"
+    deployTimestamp: BigInt! #the timestamp the contract was deployed
+    "Address of deployer"
+    deployer: Bytes! #address of the deployer - get from event OffchainAssetVaultConstruction.sender
+    "Address of the OffchainAssetVaultFactory that is this contract's parent."
+    factory: OffchainAssetVaultFactory! #the factory that deployed this contract
+    "The initial admin set when this contract was deployed"
+    admin: Bytes! # OffchainAssetVaultConstruction.sender
+    "The name of the ERC20 token for this OffchainAssetVault"
+    name: String! # OffchainAssetVaultConstruction.receiptVaultConfig.name
+    "The symbol for the ERC20 token for this OffchainAssetVault"
+    symbol: String! # OffchainAssetVaultConstruction.receiptVaultConfig.symbol
+    "The uri for the ERC1155 token for this OffchainAssetVault"
+    uri: String! # OffchainAssetVaultConstruction.receiptVaultConfig.uri
+    "The timestamp that this OffchainAssetVault is certified until"
+    certifiedUntil: BigInt! # Updated with each new Certify event
+    "Certifications for this OffchainAssetVault"
+    certifications: [Certification] # All Cerification entities for this OffchainAssetVault
+    "Receipt holders for this OffchainAssetVault"
+    receiptHolders: [ReceiptHolder]
+    "Share holders for this OffchainAssetVault"
+    shareHolders: [ShareHolder]
+    "Share confiscations"
+    shareConfiscations: [ShareConfiscation] # All ShareConfiscation entities for this OffchainAssetVault
+    "Receipt confiscations"
+    receiptConfiscations: [ReceiptConfiscation] # All ReceiptConfiscation entities for this OffchainAssetVault
+}
+
+# Created with every mint for a new 1155 id (TransferSingle event from the zero address)
+# Subsequent mints and burns update shares, deposits
+# Receipt information added via the ReceiptInformation event (see below)
+type Receipt @entity {
+    "ID"
+    id: ID! # {OffchainAssetVault address}-{TransferSingle.id}
+    "ID of the receipt"
+    receiptId: BigInt! # From TransferSingle.id
+    "The OffchainAssetVault that this receipt is for"
+    offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted ths Certify event
+    "Total shares created for this receipt"
+    shares: BigInt! # Increases with every mint, decreases with every burn
+    "Deposits for this receipt"
+    deposits: [Deposits!]
+    "Withdraws for this receipt"
+    withdraws: [Withdraw!]!
+    "Receipt information"
+    receiptInformation: [ReceiptInformation!]! # Link to all ReceiptInformation emitted for this OffchainAssetVault and this receiptId
+    "Holders of this receipt"
+    receiptHolders: [ReceiptHolder!]! 
+}
+
+type ReceiptHolder @entity {
+
+}
+
+type ShareHolder @entity {
+
+}
+
+# Created with every TransferSingle event from the zero address
+type Deposit @entity {
+    id: ID!
+    "Block number for the Deposit"
+    block: BigInt! # the block of the mint event
+    "Timestamp for Deposit event"
+    timestamp: BigInt! # the timestamp of the TransferSingle event
+    "The OffchainAssetVault that this deposit is for"
+    offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted the mint event
+    "The receipt this deposit is for"
+    receiptId: BigInt! # TransferSingle.id
+    "The shares minted with this deposit"
+    shares: BigInt! # TransferSingle.amount
+    "The receiver of the ERC1155 receipts and the ERC20 shares"
+    receiver: Bytes! # From TransferSingle.to
+    "The sender of the transaction"
+    sender: Bytes! # @TODO
+}
+
+# Created with every TransferSingle event to the zero address
+type Withdraw @entity {
+  id: ID!
+  assets: BigInt!
+  caller: Bytes!
+  owner: Bytes!
+  receiver: Bytes!
+  shares: BigInt!
+}
+
+
+# Created with every new ReceiptInformation event
+type ReceiptInformation @entity {
+    "ID"
+    id: ID! # Can be UUID
+    "The OffchainAssetVault that has the receipt this information is for"
+    offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted ths Certify event
+    "The receipt this information is for"
+    receipt: Receipt # Link by {OffchainAssetVault address}-{TransferSingle.id}
+    "The information"
+    information: Bytes! # ReceiptInformation.data
+    "The sender of this receipt information"
+    sender: Bytes! # ReceiptInformation.senderß
+}
+
+# Get from event Certify
+type Certification @entity {
+    "Transaction hash in which Certify was emitted"
+    id: ID! #txhash of the Certify event
+    "The OffchainAssetVault that was certified"
+    offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted ths Certify event
+    "The address that submitted the certificatio.."
+    certifier: Bytes! # Certify.sender
+    "Until when the certification is valid."
+    certifiedUntil: BigInt! # Certify.until
+    "The data submitted with the certification"
+    data: Bytes! # Certify.data
+}
+
+# Get from event ConfiscateShares
+type ShareConfiscation @entity {
+    "Transaction hash in which ConfiscateShares was emitted"
+    id: ID! #txhash of the ConfiscateShares event
+    "The OffchainAssetVault that shares were confiscated for"
+    offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted the event
+    "Block number for ConfiscateShares event"
+    block: BigInt! # the block of the ConfiscateShares event
+    "Timestamp for ConfiscateShares event"
+    timestamp: BigInt! # the timestamp of the ConfiscateShares event
+    "The confiscator's address"
+    confiscator: Bytes! # ConfiscateShares.sender
+    "The confiscatee's address"
+    confiscatee: Bytes! # ConfiscateShares.confiscatee
+    "The number of shares confiscated"
+    confiscated: BigInt! # ConfiscateShares.confiscated
+}
+
+# Get from event ConfiscateReceipt
+type ReceiptConfiscation @entity {
+    "Transaction hash in which ConfiscateReceipt was emitted"
+    id: ID! #txhash of the ConfiscateReceipt event
+    "The OffchainAssetVault that shares were confiscated for"
+    offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted the event
+    "Block number for ConfiscateReceipt event"
+    block: BigInt! # the block of the ConfiscateReceipt event
+    "Timestamp for ConfiscateReceipt event"
+    timestamp: BigInt! # the timestamp of the ConfiscateReceipt event
+    "The confiscator's address"
+    confiscator: Bytes! # ConfiscateReceipt.sender
+    "The confiscatee's address"
+    confiscatee: Bytes! # ConfiscateReceipt.confiscatee
+    "The token id of the receipt confiscated"
+    tokenId: BigInt! # ConfiscateReceipt.id
+    "The number of receipts confiscated"
+    confiscated: BigInt! # ConfiscateReceipt.confiscated
+}
