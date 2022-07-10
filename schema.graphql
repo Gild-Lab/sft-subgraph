@@ -26,7 +26,7 @@ type OffchainAssetVault @entity {
     name: String! # OffchainAssetVaultConstruction.receiptVaultConfig.name
     "The symbol for the ERC20 token for this OffchainAssetVault"
     symbol: String! # OffchainAssetVaultConstruction.receiptVaultConfig.symbol
-    "This OffchainAssetVault as an account, including its associated events"
+    "This OffchainAssetVault as an account including its associated events"
     asAccount: Account!
     "The total number of shares for this OffchainAssetVault"
     totalShares: BigInt! # OffchainAssetVault.totalSupply() - update with every mint/burn
@@ -106,7 +106,7 @@ type Account @entity {
 }
 
 # Created with every mint for a new 1155 id (TransferSingle event from the zero address)
-# Subsequent mints and burns update shares, deposits
+# Subsequent mints and burns update shares + deposits
 # Receipt information added via the ReceiptInformation event (see below)
 type Receipt @entity {
     "ID"
@@ -116,7 +116,7 @@ type Receipt @entity {
     "The OffchainAssetVault that this receipt is for"
     offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted ths Certify event
     "Total shares created for this receipt"
-    shares: BigInt! # Increases with every mint, decreases with every burn
+    shares: BigInt! # Increases with every mint and decreases with every burn
     "Deposits for this receipt"
     deposits: [Deposits!]
     "Withdraws for this receipt"
@@ -278,8 +278,8 @@ type ReceiptBalance @entity {
     valueExact: BigInt!
     transferFromEvent: [ReceiptTransfer!]! @derivedFrom(field: "fromBalance")
     transferToEvent: [ReceiptTransfer!]! @derivedFrom(field: "toBalance")
-    "The amount this receipt that has been confiscated, for this account"
-    confiscated: BigInt! # Update if there is a ConfiscateReceipts for this OffchainAssetVault, Receipt and Account
+    "The amount this receipt that has been confiscated for this account"
+    confiscated: BigInt! # Update if there is a ConfiscateReceipts for this OffchainAssetVault and Receipt and Account
 }
 
 type ReceiptOperator @entity {
