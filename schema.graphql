@@ -53,6 +53,11 @@ type OffchainAssetVault @entity {
     "Receipt transfers for this OffchainAssetVault"
     receiptTransfers: [ReceiptTransfer!]! @derivedFrom(field: "offchainAssetVault")
 
+    "Deposits for this OffchainAssetVault"
+    deposits: [DepositWithReceipt] @derivedFrom(field: "offchainAssetVault")
+    "Withdraws for this OffchainAssetVault"
+    withdraws: [WithdrawWithReceipt] @derivedFrom(field: "offchainAssetVault")
+
     "The timestamp that this OffchainAssetVault is certified until"
     certifiedUntil: BigInt! # Updated with each new Certify event
     "Certifications for this OffchainAssetVault"
@@ -90,6 +95,9 @@ type Account @entity {
     ReceiptTransferToEvent: [ReceiptTransfer!]! @derivedFrom(field: "to")
     ReceiptTransferOperatorEvent: [ReceiptTransfer!]! @derivedFrom(field: "operator")
 
+    DepositWithReceipts: [DepositWithReceipt] @derivedFrom(field: "caller")
+    WithdrawWithReceipts: [WithdrawWithReceipt] @derivedFrom(field: "caller")
+
     ConficateSharesConfiscator: [ConfiscateShares!]! @derivedFrom(field: "confiscator")
     ConficateSharesConfiscatee: [ConfiscateShares!]! @derivedFrom(field: "confiscatee")
 
@@ -105,71 +113,93 @@ type Account @entity {
     events: [Event!]! @derivedFrom(field: "emitter")
 }
 
-# Created with every mint for a new 1155 id (TransferSingle event from the zero address)
-# Subsequent mints and burns update shares + deposits
+# Created with every DepositWithReceipt
+# Subsequent DepositWithReceipt and WithdrawWithReceipt events update shares
 # Receipt information added via the ReceiptInformation event (see below)
 type Receipt @entity {
     "ID"
-    id: ID! # {OffchainAssetVault address}-{TransferSingle.id}
+    id: ID! # {OffchainAssetVault address}-{DepositWithReceipt.id}
     "ID of the receipt"
-    receiptId: BigInt! # From TransferSingle.id
+    receiptId: BigInt! # From DepositWithReceipt.id
     "The OffchainAssetVault that this receipt is for"
-    offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted ths Certify event
+    offchainAssetVault: OffchainAssetVault!
     "Total shares created for this receipt"
-    shares: BigInt! # Increases with every mint and decreases with every burn
+    shares: BigInt! # INCREASES with every DepositWithReceipt and DECREASES with every WithdrawWithReceipt
     "Deposits for this receipt"
-    deposits: [Deposits!]
+    deposits: [DepositWithReceipt!]
     "Withdraws for this receipt"
-    withdraws: [Withdraw!]!
+    withdraws: [WithdrawWithReceipt!]!
     "Holders of this receipt"
     holders: [Account!]! # All Accounts that have a ReceiptBalance for this receiptId
     "Balances for this receipt"
     balances: [ReceiptBalance!]! @derivedFrom(field: "token")
     "Transfers for this receipt"
     transfers: [ReceiptTransfer!]! @derivedFrom(field: "token")
+    "Information for this receipt"
+    receiptInformations: [ReceiptInformation!]! @derivedFrom(field: "receipt")
 }
 
-# # Created with every TransferSingle event from the zero address
-# type Deposit @entity implements Event {
-#     id: ID!
-#     "Block number for the Deposit"
-#     block: BigInt! # the block of the mint event
-#     "Timestamp for Deposit event"
-#     timestamp: BigInt! # the timestamp of the TransferSingle event
-#     "The OffchainAssetVault that this deposit is for"
-#     offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted the mint event
-#     "The receipt this deposit is for"
-#     receipt: Receipt! # TransferSingle.id
-#     "The shares minted with this deposit"
-#     shares: BigInt! # TransferSingle.amount
-#     "The receiver of the ERC1155 receipts and the ERC20 shares"
-#     receiver: Account! # From TransferSingle.to
-#     "The sender of the transaction"
-#     sender: Account! # @TODO
-# }
+# Created with every DepositWithReceipt event
+type DepositWithReceipt @entity implements Event {
+    id: ID!
+    "The transaction in which DepositWithReceipt was emitted"
+    transaction: Transaction!
+    "The emitter of the event"
+    emitter: Account!
+    "Timestamp for DepositWithReceipt event"
+    timestamp: BigInt! # the timestamp of the DepositWithReceipt event
+    "The OffchainAssetVault that this deposit is for"
+    offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted the mint event
+    "The receipt this deposit is for"
+    receipt: Receipt! # DepositWithReceipt.id
+    "The amount of shares and receipts minted with this deposit"
+    amount: BigInt! # DepositWithReceipt.shares
+    "The receipt information submitted with the deposit"
+    information: ReceiptInformation! @derivedFrom(field: "receipt")
+    "The receiver of the ERC1155 receipts and the ERC20 shares"
+    receiver: Account! # From DepositWithReceipt.receiver
+    "The caller of the transaction"
+    caller: Account! # DepositWithReceipt.caller
+}
 
-# # Created with every TransferSingle event to the zero address
-# type Withdraw @entity implements Event {
-#   id: ID!
-#   assets: BigInt!
-#   caller: Bytes!
-#   owner: Bytes!
-#   receiver: Bytes!
-#   shares: BigInt!
-# }
+# Created with every WithdrawWithReceipt event
+type WithdrawWithReceipt @entity implements Event {
+    id: ID!
+    "The transaction in which WithdrawWithReceipt was emitted"
+    transaction: Transaction!
+    "The emitter of the event"
+    emitter: Account!
+    "Timestamp for WithdrawWithReceipt event"
+    timestamp: BigInt! # the timestamp of the WithdrawWithReceipt event
+    "The OffchainAssetVault that this withdraw is for"
+    offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted the mint event
+    "The receipt this withdraw is for"
+    receipt: Receipt! # WithdrawWithReceipt.id
+    "The amount of shares and receipts burned with this withdraw"
+    amount: BigInt! # WithdrawWithReceipt.shares
+    "The owner of the ERC1155 receipts and the ERC20 shares burned"
+    owner: Account! # From WithdrawWithReceipt.owner
+    "The caller of the transaction"
+    caller: Account! # WithdrawWithReceipt.caller
+}
 
 # Created with every new ReceiptInformation event
-type ReceiptInformation @entity {
-    "ID"
-    id: ID! # Can be UUID
+type ReceiptInformation @entity implements Event {
+    id: ID!
+    "The transaction in which ReceiptInformation was emitted"
+    transaction: Transaction!
+    "The emitter of the event"
+    emitter: Account!
+    "Timestamp for ReceiptInformation event"
+    timestamp: BigInt! # the timestamp of the ReceiptInformation event
     "The OffchainAssetVault that has the receipt this information is for"
     offchainAssetVault: OffchainAssetVault! # OffchainAssetVault that emitted ths Certify event
     "The receipt this information is for"
     receipt: Receipt # Link by {OffchainAssetVault address}-{TransferSingle.id}
     "The information"
     information: Bytes! # ReceiptInformation.data
-    "The sender of this receipt information"
-    sender: Account! # ReceiptInformation.sender
+    "The caller of this receipt information"
+    caller: Account! # ReceiptInformation.caller
 }
 
 # Get from event Certify
